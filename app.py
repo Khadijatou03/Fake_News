@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from train_model import FakeNewsDetector
+from train_model import FakeNewsDetector, train_and_save_model
+import joblib
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-import joblib
 
 # Configuration de la page
 st.set_page_config(
@@ -14,18 +15,41 @@ st.set_page_config(
 )
 
 # Titre de l'application
-st.title("🔍 Détecteur de Fake News")
+st.title("Détecteur de Fake News 📰")
 
-# Chargement du modèle
-@st.cache_resource
-def load_model():
+# Fonction pour charger ou entraîner le modèle
+def get_model():
     try:
-        return FakeNewsDetector.load('fake_news_model.joblib')
+        detector = FakeNewsDetector.load('fake_news_model.joblib')
+        st.success("Modèle chargé avec succès !")
     except:
-        st.error("Le modèle n'est pas encore entraîné. Veuillez exécuter train_model.py d'abord.")
-        return None
+        with st.spinner("Première utilisation : entraînement du modèle en cours..."):
+            # Vérifier si les fichiers de données existent
+            if not os.path.exists('Fake.csv') or not os.path.exists('True.csv'):
+                # Charger les données depuis le repository
+                fake_url = "https://raw.githubusercontent.com/Rimka33/detection-de-fake-news/main/Fake.csv"
+                true_url = "https://raw.githubusercontent.com/Rimka33/detection-de-fake-news/main/True.csv"
+                
+                try:
+                    df_fake = pd.read_csv(fake_url)
+                    df_true = pd.read_csv(true_url)
+                    
+                    # Sauvegarder localement
+                    df_fake.to_csv('Fake.csv', index=False)
+                    df_true.to_csv('True.csv', index=False)
+                except Exception as e:
+                    st.error(f"Erreur lors du chargement des données : {str(e)}")
+                    st.stop()
+            
+            # Entraîner le modèle
+            train_and_save_model()
+            detector = FakeNewsDetector.load('fake_news_model.joblib')
+            st.success("Modèle entraîné et chargé avec succès !")
+    
+    return detector
 
-detector = load_model()
+# Charger ou entraîner le modèle
+detector = get_model()
 
 if detector is not None:
     # Interface utilisateur pour la détection
