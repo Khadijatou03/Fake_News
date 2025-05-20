@@ -1,23 +1,25 @@
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import re
 import joblib
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 
-# Télécharger les ressources NLTK nécessaires
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
+# Liste des stop words en anglais
+STOP_WORDS = {
+    'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're",
+    "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves',
+    'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself',
+    'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+    'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those',
+    'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has',
+    'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and',
+    'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by',
+    'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during',
+    'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in',
+    'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once'
+}
 
 class FakeNewsDetector:
     def __init__(self, n_clusters=5):
@@ -25,7 +27,7 @@ class FakeNewsDetector:
         # Augmenter le nombre de features et ajouter des n-grams
         self.vectorizer = TfidfVectorizer(
             max_features=2000,
-            stop_words='english',
+            stop_words=None,
             ngram_range=(1, 2),
             min_df=2
         )
@@ -36,11 +38,17 @@ class FakeNewsDetector:
         
     def preprocess_text(self, texts):
         processed_texts = []
-        stop_words = set(stopwords.words('english'))
         for text in texts:
-            tokens = word_tokenize(str(text).lower())
-            tokens = [token for token in tokens if token not in stop_words and token.isalnum()]
-            processed_texts.append(' '.join(tokens))
+            # Convertir en minuscules
+            text = str(text).lower()
+            # Supprimer la ponctuation et les chiffres
+            text = re.sub(r'[^a-z\s]', ' ', text)
+            # Diviser en mots
+            words = text.split()
+            # Supprimer les stop words et les mots courts
+            words = [w for w in words if w not in STOP_WORDS and len(w) > 2]
+            # Rejoindre les mots
+            processed_texts.append(' '.join(words))
         return processed_texts
     
     def prepare_data(self, titles, texts):
