@@ -8,6 +8,17 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
+# Télécharger les ressources NLTK nécessaires
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
+
 class FakeNewsDetector:
     def __init__(self, n_clusters=5):
         self.n_clusters = n_clusters
@@ -24,13 +35,10 @@ class FakeNewsDetector:
         self.cluster_fake_ratios = None  # Pour stocker le ratio de fake news par cluster
         
     def preprocess_text(self, texts):
-        nltk.download('punkt', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        
         processed_texts = []
+        stop_words = set(stopwords.words('english'))
         for text in texts:
             tokens = word_tokenize(str(text).lower())
-            stop_words = set(stopwords.words('english'))
             tokens = [token for token in tokens if token not in stop_words and token.isalnum()]
             processed_texts.append(' '.join(tokens))
         return processed_texts
