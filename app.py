@@ -6,6 +6,7 @@ import joblib
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+from deep_translator import GoogleTranslator
 
 # Configuration de la page
 st.set_page_config(
@@ -57,14 +58,29 @@ if detector is not None:
     
     # Formulaire de saisie
     with st.form("news_form"):
+        language = st.selectbox("Langue de l'article", ["Français", "Anglais"])
         title = st.text_input("Titre de l'article")
         text = st.text_area("Contenu de l'article")
         submitted = st.form_submit_button("Analyser")
     
     if submitted and title and text:
         with st.spinner("Analyse en cours..."):
+            # Traduction si nécessaire
+            if language == "Français":
+                translator = GoogleTranslator(source='fr', target='en')
+                try:
+                    title_en = translator.translate(title)
+                    text_en = translator.translate(text)
+                    st.info("Article traduit en anglais pour l'analyse")
+                except Exception as e:
+                    st.error(f"Erreur lors de la traduction : {str(e)}")
+                    st.stop()
+            else:
+                title_en = title
+                text_en = text
+            
             # Prédiction
-            result = detector.predict_one(title, text)
+            result = detector.predict_one(title_en, text_en)
             
             # Affichage des résultats
             st.header("📊 Résultats de l'analyse")
