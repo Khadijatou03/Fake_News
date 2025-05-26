@@ -3,11 +3,26 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 
-# Configuration de la page
+# Désactiver le tracking Streamlit
 st.set_page_config(
     page_title="Détecteur de Fake News",
-    page_icon="📰"
+    page_icon="📰",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
+
+# Désactiver les métriques Streamlit
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        .stDeployButton {display:none;}
+        #stDecoration {display:none;}
+    </style>
+""", unsafe_allow_html=True)
 
 # Titre de l'application
 st.title("Détecteur de Fake News 📰")
