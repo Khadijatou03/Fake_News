@@ -5,6 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import re
 import joblib
+import os
 
 # Liste des stop words en anglais et en français
 STOP_WORDS = {
@@ -180,44 +181,50 @@ def train_and_save_model():
         print(f"Articles anglais chargés : {len(english_data)}")
     except Exception as e:
         print(f"Erreur lors du chargement des données anglaises : {e}")
-        english_data = pd.DataFrame()
+        raise Exception("Impossible de charger les données anglaises. Vérifiez que Fake.csv et True.csv sont présents.")
     
-    try:
-        # Charger les données françaises
-        df_fr = pd.read_csv('french dataset/train.csv', sep=';', encoding='utf-8')
-        print("Colonnes du dataset français :", df_fr.columns.tolist())
-        
-        # Adapter le format des données françaises
-        df_fr['is_fake'] = df_fr['fake'].astype(bool)
-        df_fr['lang'] = 'fr'
-        
-        # Renommer les colonnes pour correspondre au format attendu
-        df_fr = df_fr.rename(columns={
-            'post': 'text',
-            'media': 'source'
-        })
-        
-        # Utiliser le début du texte comme titre puisqu'il n'y en a pas
-        df_fr['title'] = df_fr['text'].str[:100] + '...'
-        
-        print(f"Articles français chargés : {len(df_fr)}")
-    except Exception as e:
-        print(f"Erreur lors du chargement des données françaises : {e}")
-        df_fr = pd.DataFrame()
+    # Initialiser df_fr comme DataFrame vide
+    df_fr = pd.DataFrame()
     
-    # Combiner tous les datasets
+    # Essayer de charger les données françaises si le fichier existe
+    french_dataset_path = 'french dataset/train.csv'
+    if os.path.exists(french_dataset_path):
+        try:
+            df_fr = pd.read_csv(french_dataset_path, sep=';', encoding='utf-8')
+            print("Colonnes du dataset français :", df_fr.columns.tolist())
+            
+            # Adapter le format des données françaises
+            df_fr['is_fake'] = df_fr['fake'].astype(bool)
+            df_fr['lang'] = 'fr'
+            
+            # Renommer les colonnes pour correspondre au format attendu
+            df_fr = df_fr.rename(columns={
+                'post': 'text',
+                'media': 'source'
+            })
+            
+            # Utiliser le début du texte comme titre puisqu'il n'y en a pas
+            df_fr['title'] = df_fr['text'].str[:100] + '...'
+            
+            print(f"Articles français chargés : {len(df_fr)}")
+        except Exception as e:
+            print(f"Attention : Impossible de charger les données françaises : {e}")
+            print("L'application continuera avec les données anglaises uniquement.")
+    
+    # Combiner les datasets
     df = pd.concat([english_data, df_fr], ignore_index=True)
-    
-    if len(df) == 0:
-        raise Exception("Aucune donnée n'a pu être chargée")
     
     print(f"\nTotal d'articles : {len(df)}")
     print(f"Articles en anglais : {len(english_data)}")
     print(f"Articles en français : {len(df_fr)}")
     
+    if len(df) == 0:
+        raise Exception("Aucune donnée n'a pu être chargée")
+    
     print("\nInitialisation du détecteur...")
-    # Augmenter le nombre de clusters pour mieux capturer la variété
-    detector = FakeNewsDetector(n_clusters=8)
+    # Ajuster le nombre de clusters en fonction de la taille du dataset
+    n_clusters = min(8, max(3, len(df) // 1000))
+    detector = FakeNewsDetector(n_clusters=n_clusters)
     
     print("Préparation des données...")
     X = detector.prepare_data(df['title'].values, df['text'].values)
