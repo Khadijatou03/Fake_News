@@ -4,11 +4,6 @@ import numpy as np
 from train_model import FakeNewsDetector, train_and_save_model
 import joblib
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Configure matplotlib to avoid DOM issues
-plt.switch_backend('Agg')
 from deep_translator import GoogleTranslator
 
 # Configuration de la page
@@ -129,7 +124,8 @@ if detector is not None:
             
         if not has_english_data and not has_french_data:
             st.error("❌ Aucun dataset n'a pu être chargé")
-            return
+            # Ne pas continuer l'exécution
+            st.stop()
     
         # Affichage des statistiques dans deux colonnes
         col1, col2 = st.columns(2)
@@ -153,16 +149,9 @@ if detector is not None:
                     subject_counts = english_data['subject'].value_counts()
                     st.dataframe(subject_counts)
                     
-                    try:
-                        # Create figure in a safer way
-                        fig1, ax1 = plt.subplots(figsize=(10, 6))
-                        subject_counts.plot(kind='bar', ax=ax1)
-                        ax1.set_title("Distribution des sujets - Dataset Anglais")
-                        ax1.tick_params(axis='x', rotation=45)
-                        st.pyplot(fig1)
-                        plt.close('all')
-                    except Exception as e:
-                        st.warning("⚠️ Impossible de générer le graphique pour le dataset anglais")
+                    # Affichage simplifié sans graphique
+                    st.write("Top 5 des sujets les plus fréquents :")
+                    st.table(subject_counts.head(5))
         
         # Dataset Français
         with col2:
@@ -177,16 +166,13 @@ if detector is not None:
                 st.metric("Articles vrais", vrais)
                 st.metric("Articles faux", faux)
                 
-                try:
-                    # Create figure in a safer way
-                    fig2, ax2 = plt.subplots(figsize=(10, 6))
-                    df_fr['is_fake'].map({0: 'VRAI', 1: 'FAUX'}).value_counts().plot(kind='bar', ax=ax2)
-                    ax2.set_title("Distribution des articles - Dataset Français")
-                    ax2.tick_params(axis='x', rotation=45)
-                    st.pyplot(fig2)
-                    plt.close('all')
-                except Exception as e:
-                    st.warning("⚠️ Impossible de générer le graphique pour le dataset français")
+                # Affichage simplifié sans graphique
+                st.write("Distribution des articles :")
+                distribution = pd.DataFrame({
+                    'Type': ['VRAI', 'FAUX'],
+                    'Nombre': [vrais, faux]
+                })
+                st.table(distribution)
     except Exception as e:
         st.error(f"❌ Erreur lors de l'affichage des statistiques : {str(e)}")
 
