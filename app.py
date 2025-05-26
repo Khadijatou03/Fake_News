@@ -6,13 +6,19 @@ import joblib
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# Configure matplotlib to avoid DOM issues
+plt.switch_backend('Agg')
 from deep_translator import GoogleTranslator
 
 # Configuration de la page
 st.set_page_config(
     page_title="Détecteur de Fake News",
     page_icon="📰",
-    layout="wide"
+    layout="wide",
+    menu_items={
+        'About': "Détecteur de Fake News - Projet de Fouille de Données"
+    }
 )
 
 # Titre de l'application
@@ -94,62 +100,95 @@ if detector is not None:
                 st.write("Note : Un Z-score > 2.0 indique une anomalie potentielle")
     
     # Statistiques des datasets d'entraînement
-    st.header("📊 Statistiques des datasets d'entraînement")
-    
-    # Chargement des données
     try:
-        df_fake_en = pd.read_csv('Fake.csv')
-        df_true_en = pd.read_csv('True.csv')
-        english_data = pd.concat([df_fake_en, df_true_en])
-        english_data['lang'] = 'en'
-    except Exception as e:
-        st.warning("⚠️ Impossible de charger les données anglaises")
-        english_data = pd.DataFrame()
+        st.header("📊 Statistiques des datasets d'entraînement")
+        
+        # Chargement des données anglaises
+        try:
+            df_fake_en = pd.read_csv('Fake.csv')
+            df_true_en = pd.read_csv('True.csv')
+            english_data = pd.concat([df_fake_en, df_true_en])
+            english_data['lang'] = 'en'
+            has_english_data = True
+        except Exception as e:
+            st.warning("⚠️ Impossible de charger les données anglaises")
+            english_data = pd.DataFrame()
+            has_english_data = False
+        
+        # Chargement des données françaises
+        try:
+            df_fr = pd.read_csv(os.path.join('french dataset', 'train.csv'), sep=';', encoding='utf-8')
+            # Renommer les colonnes pour correspondre au format attendu
+            df_fr = df_fr.rename(columns={'post': 'text', 'fake': 'is_fake', 'media': 'source'})
+            df_fr['lang'] = 'fr'
+            has_french_data = True
+        except Exception as e:
+            st.warning("⚠️ Impossible de charger les données françaises")
+            df_fr = pd.DataFrame()
+            has_french_data = False
+            
+        if not has_english_data and not has_french_data:
+            st.error("❌ Aucun dataset n'a pu être chargé")
+            return
     
-    try:
-        df_fr = pd.read_csv(os.path.join('french dataset', 'train.csv'), sep=';', encoding='utf-8')
-        # Renommer les colonnes pour correspondre au format attendu
-        df_fr = df_fr.rename(columns={'post': 'text', 'fake': 'is_fake', 'media': 'source'})
-        df_fr['lang'] = 'fr'
-    except Exception as e:
-        st.warning("⚠️ Impossible de charger les données françaises")
-        df_fr = pd.DataFrame()
-    
-    # Affichage des statistiques
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Dataset Anglais")
-        if not english_data.empty:
-            st.write(f"Nombre total d'articles : {len(english_data)}")
-            st.write(f"Articles vrais : {len(df_true_en)}")
-            st.write(f"Articles faux : {len(df_fake_en)}")
-            if 'subject' in english_data.columns:
-                st.write("\nDistribution des sujets :")
-                st.write(english_data['subject'].value_counts())
+        # Affichage des statistiques dans deux colonnes
+        col1, col2 = st.columns(2)
+        
+        # Dataset Anglais
+        with col1:
+            st.subheader("Dataset Anglais")
+            if has_english_data:
+                total_en = len(english_data)
+                true_en = len(df_true_en)
+                fake_en = len(df_fake_en)
                 
-                fig1, ax1 = plt.subplots(figsize=(10, 6))
-                english_data['subject'].value_counts().plot(kind='bar')
-                plt.title("Distribution des sujets - Dataset Anglais")
-                plt.xticks(rotation=45)
-                st.pyplot(fig1)
-    
-    with col2:
-        st.subheader("Dataset Français")
-        if not df_fr.empty:
-            st.write(f"Nombre total d'articles : {len(df_fr)}")
-            vrais = len(df_fr[df_fr['is_fake'] == 0])
-            faux = len(df_fr[df_fr['is_fake'] == 1])
-            
-            st.write(f"Articles vrais : {vrais}")
-            st.write(f"Articles faux : {faux}")
-            
-            # Afficher la distribution des étiquettes
-            fig2, ax2 = plt.subplots(figsize=(10, 6))
-            df_fr['is_fake'].map({0: 'VRAI', 1: 'FAUX'}).value_counts().plot(kind='bar')
-            plt.title("Distribution des articles - Dataset Français")
-            plt.xticks(rotation=45)
-            st.pyplot(fig2)
+                # Métriques de base
+                st.metric("Nombre total d'articles", total_en)
+                st.metric("Articles vrais", true_en)
+                st.metric("Articles faux", fake_en)
+                
+                # Distribution des sujets si disponible
+                if 'subject' in english_data.columns:
+                    st.write("\nDistribution des sujets :")
+                    subject_counts = english_data['subject'].value_counts()
+                    st.dataframe(subject_counts)
+                    
+                    try:
+                        # Create figure in a safer way
+                        fig1, ax1 = plt.subplots(figsize=(10, 6))
+                        subject_counts.plot(kind='bar', ax=ax1)
+                        ax1.set_title("Distribution des sujets - Dataset Anglais")
+                        ax1.tick_params(axis='x', rotation=45)
+                        st.pyplot(fig1)
+                        plt.close('all')
+                    except Exception as e:
+                        st.warning("⚠️ Impossible de générer le graphique pour le dataset anglais")
+        
+        # Dataset Français
+        with col2:
+            st.subheader("Dataset Français")
+            if has_french_data:
+                total_fr = len(df_fr)
+                vrais = len(df_fr[df_fr['is_fake'] == 0])
+                faux = len(df_fr[df_fr['is_fake'] == 1])
+                
+                # Métriques de base
+                st.metric("Nombre total d'articles", total_fr)
+                st.metric("Articles vrais", vrais)
+                st.metric("Articles faux", faux)
+                
+                try:
+                    # Create figure in a safer way
+                    fig2, ax2 = plt.subplots(figsize=(10, 6))
+                    df_fr['is_fake'].map({0: 'VRAI', 1: 'FAUX'}).value_counts().plot(kind='bar', ax=ax2)
+                    ax2.set_title("Distribution des articles - Dataset Français")
+                    ax2.tick_params(axis='x', rotation=45)
+                    st.pyplot(fig2)
+                    plt.close('all')
+                except Exception as e:
+                    st.warning("⚠️ Impossible de générer le graphique pour le dataset français")
+    except Exception as e:
+        st.error(f"❌ Erreur lors de l'affichage des statistiques : {str(e)}")
 
 else:
     st.warning("⚠️ Le modèle n'est pas chargé. Veuillez exécuter train_model.py d'abord.")
