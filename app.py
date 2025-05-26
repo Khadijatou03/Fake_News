@@ -2,8 +2,6 @@ import streamlit as st
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
-import joblib
-import os
 
 # Configuration de la page
 st.set_page_config(
@@ -42,6 +40,7 @@ EXAMPLES = {
     ]
 }
 
+@st.cache_resource
 def create_model():
     """Crée et entraîne un modèle simple avec les exemples"""
     # Préparation des données
@@ -58,31 +57,10 @@ def create_model():
     
     return vectorizer, model
 
-def get_model():
-    """Charge ou crée le modèle"""
-    try:
-        # Essayer de charger le modèle sauvegardé
-        model_data = joblib.load('fake_news_model.joblib')
-        vectorizer = model_data['vectorizer']
-        model = model_data['model']
-        st.success("Modèle chargé avec succès !")
-    except:
-        # Si le modèle n'existe pas, en créer un nouveau
-        with st.spinner("Création d'un nouveau modèle..."):
-            vectorizer, model = create_model()
-            # Sauvegarder le modèle
-            model_data = {
-                'vectorizer': vectorizer,
-                'model': model
-            }
-            joblib.dump(model_data, 'fake_news_model.joblib')
-            st.success("Nouveau modèle créé et sauvegardé !")
-    
-    return vectorizer, model
-
 try:
-    # Charger ou créer le modèle
-    vectorizer, model = get_model()
+    # Créer le modèle (mis en cache par Streamlit)
+    with st.spinner("Initialisation du modèle..."):
+        vectorizer, model = create_model()
     
     # Interface utilisateur
     st.header("📝 Analyser un article")
@@ -137,7 +115,7 @@ try:
     st.header("ℹ️ À propos")
     st.write("""
     Cette application utilise un modèle de machine learning simple pour détecter les fake news.
-    Le modèle a été entraîné sur un ensemble d'exemples de vraies et fausses nouvelles.
+    Le modèle est créé à chaque démarrage avec un ensemble d'exemples de vraies et fausses nouvelles.
     
     ⚠️ **Note importante** : Cette application est un outil d'aide à la décision. 
     Pour une analyse complète, utilisez toujours votre jugement critique et vérifiez les sources.
