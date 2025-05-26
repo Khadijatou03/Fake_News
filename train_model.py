@@ -6,8 +6,9 @@ from sklearn.cluster import KMeans
 import re
 import joblib
 
-# Liste des stop words en anglais
+# Liste des stop words en anglais et en français
 STOP_WORDS = {
+    # Anglais
     'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're",
     "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves',
     'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself',
@@ -18,7 +19,19 @@ STOP_WORDS = {
     'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by',
     'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during',
     'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in',
-    'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once'
+    'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
+    # Français
+    'je', 'tu', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'le', 'la',
+    'les', 'un', 'une', 'des', 'ce', 'cette', 'ces', 'mon', 'ton', 'son',
+    'ma', 'ta', 'sa', 'mes', 'tes', 'ses', 'notre', 'votre', 'leur', 'nos',
+    'vos', 'leurs', 'qui', 'que', 'quoi', 'dont', 'où', 'quand', 'comment',
+    'pourquoi', 'quel', 'quelle', 'quels', 'quelles', 'et', 'ou', 'mais',
+    'donc', 'car', 'si', 'dans', 'sur', 'sous', 'avec', 'sans', 'pour',
+    'par', 'de', 'à', 'vers', 'chez', 'entre', 'pendant', 'après', 'avant',
+    'depuis', 'dès', 'durant', 'être', 'avoir', 'faire', 'dire', 'aller',
+    'voir', 'venir', 'devoir', 'vouloir', 'pouvoir', 'falloir', 'très',
+    'plus', 'moins', 'peu', 'beaucoup', 'trop', 'assez', 'tout', 'tous',
+    'toute', 'toutes', 'aucun', 'aucune', 'même', 'aussi', 'alors', 'donc'
 }
 
 class FakeNewsDetector:
@@ -153,19 +166,54 @@ class FakeNewsDetector:
 
 def train_and_save_model():
     print("Chargement des données...")
-    # Charger les fake news
-    df_fake = pd.read_csv('Fake.csv')
-    df_fake['is_fake'] = True
+    try:
+        # Charger les données anglaises
+        df_fake = pd.read_csv('Fake.csv')
+        df_fake['is_fake'] = True
+        df_fake['lang'] = 'en'
+        
+        df_true = pd.read_csv('True.csv')
+        df_true['is_fake'] = False
+        df_true['lang'] = 'en'
+        
+        english_data = pd.concat([df_fake, df_true], ignore_index=True)
+        print(f"Articles anglais chargés : {len(english_data)}")
+    except Exception as e:
+        print(f"Erreur lors du chargement des données anglaises : {e}")
+        english_data = pd.DataFrame()
     
-    # Charger les vraies news
-    df_true = pd.read_csv('True.csv')
-    df_true['is_fake'] = False
+    try:
+        # Charger les données françaises
+        df_fr = pd.read_csv('french dataset/train.csv', sep=';', encoding='utf-8')
+        print("Colonnes du dataset français :", df_fr.columns.tolist())
+        
+        # Adapter le format des données françaises
+        df_fr['is_fake'] = df_fr['fake'].astype(bool)
+        df_fr['lang'] = 'fr'
+        
+        # Renommer les colonnes pour correspondre au format attendu
+        df_fr = df_fr.rename(columns={
+            'post': 'text',
+            'media': 'source'
+        })
+        
+        # Utiliser le début du texte comme titre puisqu'il n'y en a pas
+        df_fr['title'] = df_fr['text'].str[:100] + '...'
+        
+        print(f"Articles français chargés : {len(df_fr)}")
+    except Exception as e:
+        print(f"Erreur lors du chargement des données françaises : {e}")
+        df_fr = pd.DataFrame()
     
-    # Combiner les datasets
-    df = pd.concat([df_fake, df_true], ignore_index=True)
-    print(f"Total d'articles : {len(df)}")
-    print(f"Articles fake : {len(df_fake)}")
-    print(f"Articles vrais : {len(df_true)}")
+    # Combiner tous les datasets
+    df = pd.concat([english_data, df_fr], ignore_index=True)
+    
+    if len(df) == 0:
+        raise Exception("Aucune donnée n'a pu être chargée")
+    
+    print(f"\nTotal d'articles : {len(df)}")
+    print(f"Articles en anglais : {len(english_data)}")
+    print(f"Articles en français : {len(df_fr)}")
     
     print("\nInitialisation du détecteur...")
     # Augmenter le nombre de clusters pour mieux capturer la variété

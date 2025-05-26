@@ -65,22 +65,12 @@ if detector is not None:
     
     if submitted and title and text:
         with st.spinner("Analyse en cours..."):
-            # Traduction si nécessaire
-            if language == "Français":
-                translator = GoogleTranslator(source='fr', target='en')
-                try:
-                    title_en = translator.translate(title)
-                    text_en = translator.translate(text)
-                    st.info("Article traduit en anglais pour l'analyse")
-                except Exception as e:
-                    st.error(f"Erreur lors de la traduction : {str(e)}")
-                    st.stop()
-            else:
-                title_en = title
-                text_en = text
+            # Utiliser directement le texte dans sa langue d'origine
+            title_to_analyze = title
+            text_to_analyze = text
             
             # Prédiction
-            result = detector.predict_one(title_en, text_en)
+            result = detector.predict_one(title_to_analyze, text_to_analyze)
             
             # Affichage des résultats
             st.header("📊 Résultats de l'analyse")
@@ -103,23 +93,63 @@ if detector is not None:
                 st.write(f"Z-score : {result['z_score']:.2f}")
                 st.write("Note : Un Z-score > 2.0 indique une anomalie potentielle")
     
-    # Statistiques du dataset d'entraînement
-    st.header("📊 Statistiques du dataset d'entraînement")
-    df = pd.read_csv('Fake.csv')
+    # Statistiques des datasets d'entraînement
+    st.header("📊 Statistiques des datasets d'entraînement")
     
+    # Chargement des données
+    try:
+        df_fake_en = pd.read_csv('Fake.csv')
+        df_true_en = pd.read_csv('True.csv')
+        english_data = pd.concat([df_fake_en, df_true_en])
+        english_data['lang'] = 'en'
+    except Exception as e:
+        st.warning("⚠️ Impossible de charger les données anglaises")
+        english_data = pd.DataFrame()
+    
+    try:
+        df_fr = pd.read_csv(os.path.join('french dataset', 'train.csv'), sep=';', encoding='utf-8')
+        # Renommer les colonnes pour correspondre au format attendu
+        df_fr = df_fr.rename(columns={'post': 'text', 'fake': 'is_fake', 'media': 'source'})
+        df_fr['lang'] = 'fr'
+    except Exception as e:
+        st.warning("⚠️ Impossible de charger les données françaises")
+        df_fr = pd.DataFrame()
+    
+    # Affichage des statistiques
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write(f"Nombre total d'articles : {len(df)}")
-        st.write("\nDistribution des sujets :")
-        st.write(df['subject'].value_counts())
+        st.subheader("Dataset Anglais")
+        if not english_data.empty:
+            st.write(f"Nombre total d'articles : {len(english_data)}")
+            st.write(f"Articles vrais : {len(df_true_en)}")
+            st.write(f"Articles faux : {len(df_fake_en)}")
+            if 'subject' in english_data.columns:
+                st.write("\nDistribution des sujets :")
+                st.write(english_data['subject'].value_counts())
+                
+                fig1, ax1 = plt.subplots(figsize=(10, 6))
+                english_data['subject'].value_counts().plot(kind='bar')
+                plt.title("Distribution des sujets - Dataset Anglais")
+                plt.xticks(rotation=45)
+                st.pyplot(fig1)
     
     with col2:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        df['subject'].value_counts().plot(kind='bar')
-        plt.title("Distribution des sujets dans le dataset d'entraînement")
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+        st.subheader("Dataset Français")
+        if not df_fr.empty:
+            st.write(f"Nombre total d'articles : {len(df_fr)}")
+            vrais = len(df_fr[df_fr['is_fake'] == 0])
+            faux = len(df_fr[df_fr['is_fake'] == 1])
+            
+            st.write(f"Articles vrais : {vrais}")
+            st.write(f"Articles faux : {faux}")
+            
+            # Afficher la distribution des étiquettes
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            df_fr['is_fake'].map({0: 'VRAI', 1: 'FAUX'}).value_counts().plot(kind='bar')
+            plt.title("Distribution des articles - Dataset Français")
+            plt.xticks(rotation=45)
+            st.pyplot(fig2)
 
 else:
     st.warning("⚠️ Le modèle n'est pas chargé. Veuillez exécuter train_model.py d'abord.")
