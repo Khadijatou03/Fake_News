@@ -4,10 +4,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import (
     CamembertTokenizer, CamembertForSequenceClassification,
-    FlaubertTokenizer, FlaubertForSequenceClassification,
-    BertTokenizer, BertForSequenceClassification,
-    RobertaTokenizer, RobertaForSequenceClassification,
-    DistilBertTokenizer, DistilBertForSequenceClassification,
     AdamW, get_linear_schedule_with_warmup
 )
 from sklearn.model_selection import train_test_split
@@ -18,35 +14,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Définition des modèles disponibles
-AVAILABLE_MODELS = {
-    'camembert': {
-        'name': 'camembert-base',
-        'tokenizer': CamembertTokenizer,
-        'model': CamembertForSequenceClassification
-    },
-    'flaubert': {
-        'name': 'flaubert/flaubert_base_cased',
-        'tokenizer': FlaubertTokenizer,
-        'model': FlaubertForSequenceClassification
-    },
-    'bert': {
-        'name': 'bert-base-multilingual-cased',
-        'tokenizer': BertTokenizer,
-        'model': BertForSequenceClassification
-    },
-    'roberta': {
-        'name': 'roberta-base',
-        'tokenizer': RobertaTokenizer,
-        'model': RobertaForSequenceClassification
-    },
-    'distilbert': {
-        'name': 'distilbert-base-multilingual-cased',
-        'tokenizer': DistilBertTokenizer,
-        'model': DistilBertForSequenceClassification
-    }
-}
 
 class FakeNewsDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=512):
@@ -77,27 +44,22 @@ class FakeNewsDataset(Dataset):
         }
 
 class TransformerFakeNewsDetector:
-    def __init__(self, model_name='camembert', num_labels=2):
+    def __init__(self, num_labels=2):
         """
-        Initialise le détecteur de fake news basé sur un modèle transformer.
+        Initialise le détecteur de fake news basé sur CamemBERT.
         
         Args:
-            model_name (str): Nom du modèle à utiliser ('camembert', 'flaubert', 'bert', 'roberta', 'distilbert')
             num_labels (int): Nombre de classes (2 pour la détection binaire de fake news)
         """
-        if model_name not in AVAILABLE_MODELS:
-            raise ValueError(f"Modèle {model_name} non disponible. Choisissez parmi: {', '.join(AVAILABLE_MODELS.keys())}")
-        
-        self.model_name = model_name
-        self.model_info = AVAILABLE_MODELS[model_name]
+        self.model_name = 'camembert-base'
         self.num_labels = num_labels
         
         # Initialiser le tokenizer
-        self.tokenizer = self.model_info['tokenizer'].from_pretrained(self.model_info['name'])
+        self.tokenizer = CamembertTokenizer.from_pretrained(self.model_name)
         
         # Initialiser le modèle
-        self.model = self.model_info['model'].from_pretrained(
-            self.model_info['name'],
+        self.model = CamembertForSequenceClassification.from_pretrained(
+            self.model_name,
             num_labels=num_labels
         )
         
@@ -340,14 +302,14 @@ class TransformerFakeNewsDetector:
             metadata = joblib.load(f)
         
         # Créer une instance
-        detector = cls(model_name=metadata['model_name'], num_labels=metadata['num_labels'])
+        detector = cls(num_labels=metadata['num_labels'])
         
         # Charger le modèle et le tokenizer
         model_path = os.path.join(path, 'model')
         tokenizer_path = os.path.join(path, 'tokenizer')
         
-        detector.model = detector.model_info['model'].from_pretrained(model_path)
-        detector.tokenizer = detector.model_info['tokenizer'].from_pretrained(tokenizer_path)
+        detector.model = CamembertForSequenceClassification.from_pretrained(model_path)
+        detector.tokenizer = CamembertTokenizer.from_pretrained(tokenizer_path)
         
         # Déplacer le modèle sur le bon device
         detector.model.to(detector.device)
@@ -356,12 +318,11 @@ class TransformerFakeNewsDetector:
         
         return detector
 
-def train_transformer_model(model_name='camembert', epochs=3, batch_size=8, learning_rate=2e-5):
+def train_transformer_model(epochs=1, batch_size=4, learning_rate=2e-5, max_samples=1000):
     """
-    Entraîne un modèle transformer sur le dataset français et le sauvegarde.
+    Entraîne le modèle CamemBERT sur le dataset français et le sauvegarde.
     
     Args:
-        model_name (str): Nom du modèle à utiliser
         epochs (int): Nombre d'époques
         batch_size (int): Taille du batch
         learning_rate (float): Taux d'apprentissage
@@ -369,7 +330,7 @@ def train_transformer_model(model_name='camembert', epochs=3, batch_size=8, lear
     Returns:
         TransformerFakeNewsDetector: Modèle entraîné
     """
-    logger.info(f"Entraînement du modèle {model_name}...")
+    logger.info("Entraînement du modèle CamemBERT...")
     
     # Charger les données françaises
     try:
@@ -379,7 +340,12 @@ def train_transformer_model(model_name='camembert', epochs=3, batch_size=8, lear
         logger.error(f"Erreur lors du chargement du dataset français: {e}")
         raise
     
-    # Préparation des données
+    # Préparation des données (limitées pour un entraînement rapide)
+    # Limiter le nombre d'échantillons pour un entraînement plus rapide
+    if max_samples and max_samples < len(df_fr):
+        df_fr = df_fr.sample(max_samples, random_state=42)
+        logger.info(f"Utilisation d'un sous-ensemble de {max_samples} articles pour l'entraînement rapide")
+    
     texts = df_fr['post'].values
     labels = df_fr['fake'].values
     
@@ -389,7 +355,7 @@ def train_transformer_model(model_name='camembert', epochs=3, batch_size=8, lear
     )
     
     # Initialiser le modèle
-    detector = TransformerFakeNewsDetector(model_name=model_name)
+    detector = TransformerFakeNewsDetector()
     
     # Entraîner le modèle
     detector.train(
@@ -403,13 +369,17 @@ def train_transformer_model(model_name='camembert', epochs=3, batch_size=8, lear
     )
     
     # Sauvegarder le modèle
-    model_path = f'transformer_models/{model_name}_fake_news'
+    model_path = 'transformer_models/camembert_fake_news'
     detector.save(model_path)
     
-    logger.info(f"Modèle {model_name} entraîné et sauvegardé dans {model_path}")
+    logger.info(f"Modèle CamemBERT entraîné et sauvegardé dans {model_path}")
     
     return detector
 
 if __name__ == "__main__":
     # Entraîner le modèle CamemBERT (le plus adapté pour le français)
-    train_transformer_model(model_name='camembert', epochs=3)
+    # Version rapide pour test avec peu d'échantillons et 1 seule époque
+    train_transformer_model(epochs=1, max_samples=500)
+    
+    # Pour un entraînement complet, utilisez :
+    # train_transformer_model(epochs=3, max_samples=None)

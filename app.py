@@ -141,9 +141,13 @@ try:
             st.header("📝 Analyser un article")
             
             # Sélection du modèle à utiliser
+            model_options = ["Clustering (K-means)"]
+            if transformer_detector:
+                model_options.append("CamemBERT (Transformer)")
+                
             model_type = st.radio(
                 "Modèle à utiliser",
-                ["Clustering (K-means)"] + (["Transformer (CamemBERT)"] if transformer_detector else []),
+                model_options,
                 horizontal=True
             )
             
@@ -264,12 +268,10 @@ try:
                - Regroupe les articles en clusters et détecte les anomalies
                - Rapide et efficace pour le déploiement
             
-            2. **Modèles Transformer**
+            2. **Modèle Transformer**
                - CamemBERT: Spécialement entraîné pour le français
-               - FlauBERT: Alternative française à BERT
-               - BERT: Modèle multilingue pré-entraîné
-               - RoBERTa: Version optimisée de BERT
-               - DistilBERT: Version légère de BERT pour le déploiement
+               - Comprend mieux le contexte et les nuances du langage
+               - Particulièrement efficace pour les textes en français
             """)
             
             st.subheader("Datasets utilisés")
@@ -284,10 +286,10 @@ try:
                 st.write("La détection se base sur la distance aux centroïdes et les ratios de fake news par cluster.")
                 
                 if TRANSFORMER_AVAILABLE:
-                    st.write("\n**Modèles Transformer:**")
-                    st.write("Ces modèles utilisent l'architecture Transformer pour comprendre le contexte et les nuances du langage.")
-                    st.write("Ils sont fine-tunés sur notre dataset de fake news pour s'adapter à cette tâche spécifique.")
-                    st.write("Les modèles français comme CamemBERT et FlauBERT sont particulièrement adaptés pour les textes en français.")
+                    st.write("\n**Modèle CamemBERT:**")
+                    st.write("Ce modèle utilise l'architecture Transformer pour comprendre le contexte et les nuances du langage.")
+                    st.write("Il est fine-tuné sur notre dataset de fake news français pour s'adapter à cette tâche spécifique.")
+                    st.write("CamemBERT a été pré-entraîné sur un large corpus de textes français, ce qui le rend particulièrement efficace pour notre cas d'usage.")
 
     else:
         st.warning("⚠️ Le modèle n'est pas chargé. Veuillez exécuter train_model.py d'abord.")
