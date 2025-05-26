@@ -26,8 +26,8 @@ st.set_page_config(
     }
 )
 
-# Configuration de matplotlib pour éviter les problèmes DOM
-st.set_option('deprecation.showPyplotGlobalUse', False)
+# Configuration pour éviter les avertissements
+# Note: Aucune configuration spéciale nécessaire
 
 # Titre de l'application
 st.title("Détecteur de Fake News 📰")
