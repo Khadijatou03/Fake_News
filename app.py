@@ -5,6 +5,7 @@ from train_model import FakeNewsDetector, train_and_save_model
 import joblib
 import os
 from langdetect import detect
+from analyze_datasets import get_dataset_stats
 
 # Configuration de la page - version minimale pour déploiement
 st.set_page_config(
@@ -96,14 +97,51 @@ try:
                 st.write(f"Cluster assigné : {result['cluster']}")
                 st.write(f"Z-score : {result['z_score']:.2f}")
         
-        # Informations simplifiées sur l'application
+        # Statistiques sur les datasets
+        st.markdown("---")
+        st.header("📊 Statistiques des datasets")
+        
+        with st.spinner("Chargement des statistiques..."):
+            try:
+                stats = get_dataset_stats()
+                
+                # Affichage des statistiques globales
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total d'articles", stats['total_articles'])
+                with col2:
+                    st.metric("Articles fake", stats['total_fake'])
+                with col3:
+                    st.metric("Articles vrais", stats['total_true'])
+                
+                if stats['total_articles'] > 0:
+                    fake_percent = (stats['total_fake'] / stats['total_articles']) * 100
+                    true_percent = (stats['total_true'] / stats['total_articles']) * 100
+                    
+                    st.progress(fake_percent/100)
+                    st.caption(f"Répartition : {fake_percent:.1f}% fake news vs {true_percent:.1f}% articles vrais")
+                
+                # Détails par dataset
+                st.subheader("Détails par dataset")
+                for dataset in stats['datasets']:
+                    with st.expander(f"{dataset['name']} - {dataset['articles']} articles"):
+                        st.write(f"Articles fake: {dataset['fake']}")
+                        st.write(f"Articles vrais: {dataset['true']}")
+                        if dataset['articles'] > 0:
+                            fake_pct = (dataset['fake'] / dataset['articles']) * 100
+                            true_pct = (dataset['true'] / dataset['articles']) * 100
+                            st.progress(fake_pct/100)
+                            st.caption(f"Répartition : {fake_pct:.1f}% fake news vs {true_pct:.1f}% articles vrais")
+            except Exception as e:
+                st.error(f"Erreur lors du chargement des statistiques : {str(e)}")
+                st.info("Les statistiques ne sont pas disponibles. Vérifiez que les datasets sont accessibles.")
+        
+        # Informations sur l'application
         st.markdown("---")
         st.header("ℹ️ À propos")
         st.write("Cette application utilise l'apprentissage automatique pour détecter les fake news.")
         st.write("Le modèle a été entraîné sur des datasets en anglais et en français.")
         st.write("La langue de l'article est détectée automatiquement.")
-        
-        st.write("Pour plus de détails et de statistiques, exécutez l'application en local.")
 
     else:
         st.warning("⚠️ Le modèle n'est pas chargé. Veuillez exécuter train_model.py d'abord.")
